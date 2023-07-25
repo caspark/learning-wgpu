@@ -62,6 +62,7 @@ struct State {
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     window: Window,
+    mouse_position: Option<[f64; 2]>,
 }
 
 impl State {
@@ -130,6 +131,7 @@ impl State {
             queue,
             config,
             size,
+            mouse_position: None,
         }
     }
 
@@ -146,7 +148,17 @@ impl State {
         }
     }
 
-    fn input(&mut self, _event: &WindowEvent) -> bool {
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::CursorMoved {
+                device_id,
+                position,
+                ..
+            } => {
+                self.mouse_position = Some([position.x, position.y]);
+            }
+            _ => (),
+        }
         false
     }
 
@@ -166,18 +178,29 @@ impl State {
             });
 
         {
+            let color = if let Some([x, y]) = self.mouse_position {
+                wgpu::Color {
+                    r: x / self.size.width as f64,
+                    g: y / self.size.height as f64,
+                    b: 0.3,
+                    a: 1.0,
+                }
+            } else {
+                wgpu::Color {
+                    r: 0.1,
+                    g: 0.2,
+                    b: 0.3,
+                    a: 1.0,
+                }
+            };
+
             let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(color),
                         store: true,
                     },
                 })],
