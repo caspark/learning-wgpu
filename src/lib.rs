@@ -48,6 +48,9 @@ pub async fn run() {
                 Err(e) => eprintln!("Render error: {:?}", e),
             }
         }
+        Event::MainEventsCleared => {
+            state.window().request_redraw();
+        }
         _ => {}
     });
 }
