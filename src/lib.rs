@@ -119,7 +119,10 @@ struct State {
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     diffuse_bind_group: wgpu::BindGroup,
+    diffuse_bind_group_b: wgpu::BindGroup,
     diffuse_texture: texture::Texture,
+    diffuse_texture_b: texture::Texture,
+    use_texture_b: bool,
 }
 
 impl State {
@@ -179,6 +182,9 @@ impl State {
         let diffuse_bytes = include_bytes!("happy-tree.png");
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
+        let diffuse_bytes = include_bytes!("sad-tree.png");
+        let diffuse_texture_b =
+            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -216,6 +222,20 @@ impl State {
                 },
             ],
             label: Some("diffuse_bind_group"),
+        });
+        let diffuse_bind_group_b = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture_b.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture_b.sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group_b"),
         });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -292,7 +312,10 @@ impl State {
             index_buffer,
             num_indices,
             diffuse_bind_group,
+            diffuse_bind_group_b,
             diffuse_texture,
+            diffuse_texture_b,
+            use_texture_b: false,
         }
     }
 
@@ -313,6 +336,17 @@ impl State {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.mouse_position = Some([position.x, position.y])
+            }
+            &WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        virtual_keycode: Some(VirtualKeyCode::Space),
+                        state: ElementState::Pressed,
+                        ..
+                    },
+                ..
+            } => {
+                self.use_texture_b = !self.use_texture_b;
             }
             _ => (),
         }
@@ -365,7 +399,13 @@ impl State {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+
+            let diffuse_bind_group = if self.use_texture_b {
+                &self.diffuse_bind_group_b
+            } else {
+                &self.diffuse_bind_group
+            };
+            render_pass.set_bind_group(0, diffuse_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
