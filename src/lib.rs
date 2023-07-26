@@ -29,17 +29,6 @@ pub async fn run() {
                             },
                         ..
                     } => *control_flow = ControlFlow::Exit,
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Space),
-                                ..
-                            },
-                        ..
-                    } => {
-                        state.use_render_pipeline_shade = !state.use_render_pipeline_shade;
-                    }
                     WindowEvent::Resized(physical_size) => {
                         state.resize(*physical_size);
                     }
@@ -75,8 +64,6 @@ struct State {
     window: Window,
     mouse_position: Option<[f64; 2]>,
     render_pipeline: wgpu::RenderPipeline,
-    render_pipeline_shade: wgpu::RenderPipeline,
-    use_render_pipeline_shade: bool,
 }
 
 impl State {
@@ -142,11 +129,6 @@ impl State {
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
         });
 
-        let shader_shade = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shader_shade.wgsl").into()),
-        });
-
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -189,42 +171,6 @@ impl State {
             multiview: None,
         });
 
-        let render_pipeline_shade =
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Render Pipeline"),
-                layout: Some(&render_pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader_shade,
-                    entry_point: "vs_main",
-                    buffers: &[],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader_shade,
-                    entry_point: "fs_main",
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: config.format,
-                        blend: Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
-                    polygon_mode: wgpu::PolygonMode::Fill,
-                    unclipped_depth: false,
-                    conservative: false,
-                },
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
-                multiview: None,
-            });
-
         Self {
             window,
             surface,
@@ -234,8 +180,6 @@ impl State {
             size,
             mouse_position: None,
             render_pipeline,
-            render_pipeline_shade,
-            use_render_pipeline_shade: false,
         }
     }
 
@@ -307,12 +251,7 @@ impl State {
                 depth_stencil_attachment: None,
             });
 
-            let render_pipeline = if self.use_render_pipeline_shade {
-                &self.render_pipeline_shade
-            } else {
-                &self.render_pipeline
-            };
-            render_pass.set_pipeline(render_pipeline);
+            render_pass.set_pipeline(&self.render_pipeline);
             render_pass.draw(0..3, 0..1);
         }
 
